@@ -18,8 +18,8 @@ export function* random(start, end) {
   while (true) yield randomBigIntInRange(start, end);
 }
 
-export function* stride(start, end, stride, offset = 0n) {
-  for (let k = start + offset; k <= end; k += stride) yield k;
+export function* stride(start, end, strideBy, offset = 0n) {
+  for (let k = start + offset; k <= end; k += strideBy) yield k;
 }
 
 export function* combined(start, end, randomRatio = 0.5, from = null) {
@@ -35,6 +35,10 @@ export function* combined(start, end, randomRatio = 0.5, from = null) {
       cursor += step;
     }
   }
+}
+
+export function isDeterministic(name) {
+  return name === 'sequential' || name === 'stride';
 }
 
 export function buildStrategy(name, start, end, opts = {}) {

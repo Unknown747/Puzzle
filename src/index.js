@@ -14,7 +14,15 @@ function parseFlags(args) {
   const out = {};
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
-    if (a.startsWith('--')) out[a.slice(2)] = args[i + 1]?.startsWith('--') ? true : args[++i] ?? true;
+    if (!a.startsWith('--')) continue;
+    const key = a.slice(2);
+    const next = args[i + 1];
+    if (next === undefined || next.startsWith('--')) {
+      out[key] = true;
+    } else {
+      out[key] = next;
+      i++;
+    }
   }
   return out;
 }
@@ -35,6 +43,7 @@ Opsi hunt:
   --strategy NAME       random | sequential | stride | combined  (default: combined)
   --workers N           Jumlah worker (default: cpus-1)
   --duration SECS       Durasi maksimal (0 = tanpa batas)
+  --address-mode MODE   compressed | both  (default: compressed; "both" cek 2x lebih lambat)
   --no-resume           Abaikan checkpoint, mulai dari awal
 
 Contoh:
@@ -54,9 +63,9 @@ function listPuzzles() {
     const bal = String(p.balanceBTC).padStart(8);
     console.log(`  ${String(p.puzzle).padStart(3)} ${status} ${bal}    ${p.address}`);
   }
-  console.log(`\n  Total: ${PUZZLES.length} target ` +
-    `(${PUZZLES.filter(x => x.status === 'open').length} terbuka, ` +
-    `${PUZZLES.filter(x => x.status === 'solved').length} terpecahkan)\n`);
+  const open = PUZZLES.filter((x) => x.status === 'open').length;
+  const solved = PUZZLES.filter((x) => x.status === 'solved').length;
+  console.log(`\n  Total: ${PUZZLES.length} target (${open} terbuka, ${solved} terpecahkan)\n`);
 }
 
 async function main() {
@@ -68,12 +77,14 @@ async function main() {
   if (cmd === 'scrape') {
     const ids = rest.filter((a) => !isNaN(Number(a))).map(Number);
     const targets = ids.length ? PUZZLES.filter((p) => ids.includes(p.puzzle)) : PUZZLES;
-    return void (await snapshotPuzzles(targets));
+    await snapshotPuzzles(targets);
+    return;
   }
 
   if (cmd === 'watch') {
     const interval = Number(rest[0] || 60) * 1000;
-    return void (await watchPuzzles(PUZZLES.filter((p) => p.status === 'open'), { intervalMs: interval }));
+    await watchPuzzles(PUZZLES.filter((p) => p.status === 'open'), { intervalMs: interval });
+    return;
   }
 
   if (cmd === 'hunt') {
@@ -83,12 +94,14 @@ async function main() {
       process.exit(1);
     }
     const p = getPuzzle(f.puzzle);
-    return void (await huntPuzzle(p, {
+    await huntPuzzle(p, {
       strategy: f.strategy || 'combined',
       workers: f.workers ? Number(f.workers) : undefined,
       durationMs: f.duration ? Number(f.duration) * 1000 : 0,
-      resume: f['no-resume'] ? false : true,
-    }));
+      addressMode: f['address-mode'] || 'compressed',
+      resume: !f['no-resume'],
+    });
+    return;
   }
 
   console.log('==================================================');

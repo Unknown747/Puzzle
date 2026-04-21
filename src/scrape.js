@@ -13,6 +13,9 @@ const SOURCES = [
   },
 ];
 
+const CACHE_TTL_MS = 60_000;
+const cache = new Map(); // address -> { at, value }
+
 function parseStats(c, m) {
   const funded = (c.funded_txo_sum ?? 0) + (m.funded_txo_sum ?? 0);
   const spent = (c.spent_txo_sum ?? 0) + (m.spent_txo_sum ?? 0);
@@ -41,12 +44,18 @@ async function fetchWithRetry(url, { tries = 4, baseMs = 600 } = {}) {
   throw lastErr;
 }
 
-export async function scrapeWallet(address) {
+export async function scrapeWallet(address, { useCache = true } = {}) {
+  if (useCache) {
+    const c = cache.get(address);
+    if (c && Date.now() - c.at < CACHE_TTL_MS) return c.value;
+  }
   let lastErr;
   for (const src of SOURCES) {
     try {
       const d = await fetchWithRetry(src.url(address));
-      return { address, ...src.parse(d), source: src.name };
+      const value = { address, ...src.parse(d), source: src.name };
+      cache.set(address, { at: Date.now(), value });
+      return value;
     } catch (e) {
       lastErr = e;
     }
@@ -54,14 +63,14 @@ export async function scrapeWallet(address) {
   throw lastErr;
 }
 
-export async function scrapeMany(addresses, { delayMs = 250, concurrency = 1 } = {}) {
+export async function scrapeMany(addresses, { delayMs = 250, concurrency = 1, useCache = true } = {}) {
   const results = [];
   const queue = [...addresses];
   async function worker() {
     while (queue.length) {
       const a = queue.shift();
       try {
-        const r = await scrapeWallet(a);
+        const r = await scrapeWallet(a, { useCache });
         results.push(r);
         console.log(
           `[OK]  ${a}  saldo=${r.balanceBTC.toFixed(8)} BTC  ` +
@@ -99,7 +108,8 @@ export async function watchPuzzles(puzzles, { intervalMs = 60_000 } = {}) {
     const ts = new Date().toISOString();
     for (const p of puzzles) {
       try {
-        const r = await scrapeWallet(p.address);
+        // bypass cache in watch mode so we see live changes
+        const r = await scrapeWallet(p.address, { useCache: false });
         const before = prev.get(p.address);
         const tag =
           before && before.txCount !== r.txCount

@@ -10,8 +10,13 @@ const VERSION_P2PKH = 0x00;
 const VERSION_WIF = 0x80;
 
 export function bigIntToPrivKey(n) {
-  const hex = n.toString(16).padStart(64, '0');
-  return Uint8Array.from(Buffer.from(hex, 'hex'));
+  const out = new Uint8Array(32);
+  let x = n;
+  for (let i = 31; i >= 0; i--) {
+    out[i] = Number(x & 0xffn);
+    x >>= 8n;
+  }
+  return out;
 }
 
 export function pubKeyToAddress(pubkey) {
@@ -23,8 +28,7 @@ export function pubKeyToAddress(pubkey) {
 }
 
 export function privKeyToAddress(priv, compressed = true) {
-  const pub = secp.getPublicKey(priv, compressed);
-  return pubKeyToAddress(pub);
+  return pubKeyToAddress(secp.getPublicKey(priv, compressed));
 }
 
 export function privKeyToWIF(priv, compressed = true) {

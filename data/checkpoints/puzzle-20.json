@@ -1,0 +1,14 @@
+{
+  "puzzle": 20,
+  "address": "1HsMJxNiV7TLxmoF6uJNkydxPFDog4NQum",
+  "strategy": "stride",
+  "workers": 4,
+  "totalAttempts": 64246,
+  "workerLastKey": [
+    "587848",
+    "588821",
+    "588374",
+    "589083"
+  ],
+  "updatedAt": "2026-04-21T23:39:28.681Z"
+}

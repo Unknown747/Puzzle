@@ -52,7 +52,15 @@ npm test                               # jalankan test suite
 --strategy NAME       random | sequential | stride | combined (default: combined)
 --workers N           jumlah worker (default: cpus-1)
 --duration SECS       durasi maks (0 = tanpa batas)
+--address-mode MODE   compressed | both (default: compressed; "both" 2x lebih lambat)
 --no-resume           abaikan checkpoint
+
+# Auto-routing
+Jika entry puzzle di data/puzzles.json punya field "pubkey", hunt akan
+otomatis pakai BSGS (bukan brute-force address).
+
+# Output
+Kunci yang ditemukan ditulis append-only di data/found.jsonl (1 JSON per baris).
 
 # Contoh
 npm start hunt --puzzle 67 --strategy stride --workers 8

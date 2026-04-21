@@ -1,24 +1,27 @@
 import * as secp from '@noble/secp256k1';
 import { bigIntToHex } from './keygen.js';
 
-const { Point } = secp.ProjectivePoint
-  ? { Point: secp.ProjectivePoint }
-  : { Point: secp.Point };
+const Point = secp.ProjectivePoint ?? secp.Point;
 
 function pointKey(P) {
-  const a = P.toAffine();
-  return a.x.toString(16);
+  if (P.equals && P.equals(Point.ZERO)) return 'O';
+  return P.toAffine().x.toString(16);
 }
 
+/**
+ * Baby-step Giant-step solver: finds k such that k*G == target,
+ * with k in [rangeStart, rangeEnd]. Memory ~mBaby points.
+ */
 export function bsgs(targetPubHex, rangeStart, rangeEnd, mBaby = 1n << 20n) {
   const target = Point.fromHex(targetPubHex);
   const start = BigInt(rangeStart);
   const end = BigInt(rangeEnd);
+  const total = end - start + 1n;
 
-  const baseShift = Point.BASE.multiply(start === 0n ? 1n : start).negate();
-  let cur = target.add(baseShift);
-  if (start === 0n) cur = target;
+  // Shift so we search k' in [0, total) where target' = target - start*G
+  const shifted = start === 0n ? target : target.add(Point.BASE.multiply(start).negate());
 
+  // Baby steps: store j -> j*G for j in [0, mBaby)
   const baby = new Map();
   let p = Point.ZERO;
   for (let j = 0n; j < mBaby; j++) {
@@ -26,11 +29,10 @@ export function bsgs(targetPubHex, rangeStart, rangeEnd, mBaby = 1n << 20n) {
     p = p.add(Point.BASE);
   }
 
+  // Giant steps: subtract i*mBaby*G repeatedly, look for match
   const giantStep = Point.BASE.multiply(mBaby).negate();
-  let acc = cur;
-  const total = end - start + 1n;
   const giantCount = (total + mBaby - 1n) / mBaby;
-
+  let acc = shifted;
   for (let i = 0n; i < giantCount; i++) {
     const j = baby.get(pointKey(acc));
     if (j !== undefined) {

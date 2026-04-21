@@ -19,7 +19,10 @@ export function load(puzzle) {
 
 export function save(puzzle, data) {
   fs.mkdirSync(DIR, { recursive: true });
-  fs.writeFileSync(file(puzzle), JSON.stringify(data, null, 2));
+  const f = file(puzzle);
+  const tmp = f + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
+  fs.renameSync(tmp, f);
 }
 
 export function clear(puzzle) {
