@@ -27,6 +27,8 @@ src/
   bsgs.js        Baby-step Giant-step solver
   checkpoint.js  Save/load posisi (atomic write via tmp+rename)
   ui.js          ANSI helpers, progress bar, redrawable status block
+  config.js      Loader config.json (deep-merge dengan default)
+config.json      Default & tuning di root project (override via CLI flag)
 test/
   keygen.test.js
   strategies.test.js

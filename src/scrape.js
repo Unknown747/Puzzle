@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import path from 'node:path';
+import { loadConfig } from './config.js';
 
 const SOURCES = [
   {
@@ -13,7 +15,6 @@ const SOURCES = [
   },
 ];
 
-const CACHE_TTL_MS = 60_000;
 const cache = new Map(); // address -> { at, value }
 
 function parseStats(c, m) {
@@ -27,7 +28,7 @@ function parseStats(c, m) {
   };
 }
 
-async function fetchWithRetry(url, { tries = 4, baseMs = 600 } = {}) {
+async function fetchWithRetry(url, { tries, baseMs }) {
   let lastErr;
   for (let i = 0; i < tries; i++) {
     try {
@@ -44,15 +45,21 @@ async function fetchWithRetry(url, { tries = 4, baseMs = 600 } = {}) {
   throw lastErr;
 }
 
-export async function scrapeWallet(address, { useCache = true } = {}) {
+export async function scrapeWallet(address, opts = {}) {
+  const cfg = loadConfig().scrape;
+  const useCache = opts.useCache ?? true;
+  const ttl = opts.cacheTtlMs ?? cfg.cacheTtlMs;
+  const tries = opts.retryTries ?? cfg.retryTries;
+  const baseMs = opts.retryBaseMs ?? cfg.retryBaseMs;
+
   if (useCache) {
     const c = cache.get(address);
-    if (c && Date.now() - c.at < CACHE_TTL_MS) return c.value;
+    if (c && Date.now() - c.at < ttl) return c.value;
   }
   let lastErr;
   for (const src of SOURCES) {
     try {
-      const d = await fetchWithRetry(src.url(address));
+      const d = await fetchWithRetry(src.url(address), { tries, baseMs });
       const value = { address, ...src.parse(d), source: src.name };
       cache.set(address, { at: Date.now(), value });
       return value;
@@ -63,7 +70,12 @@ export async function scrapeWallet(address, { useCache = true } = {}) {
   throw lastErr;
 }
 
-export async function scrapeMany(addresses, { delayMs = 250, concurrency = 1, useCache = true } = {}) {
+export async function scrapeMany(addresses, opts = {}) {
+  const cfg = loadConfig().scrape;
+  const delayMs = opts.delayMs ?? cfg.delayMs;
+  const concurrency = Math.max(1, opts.concurrency ?? cfg.concurrency);
+  const useCache = opts.useCache ?? true;
+
   const results = [];
   const queue = [...addresses];
   async function worker() {
@@ -87,9 +99,9 @@ export async function scrapeMany(addresses, { delayMs = 250, concurrency = 1, us
   return results;
 }
 
-export async function snapshotPuzzles(puzzles, outFile = 'data/wallet-status.json') {
+export async function snapshotPuzzles(puzzles, outFile = 'data/wallet-status.json', opts = {}) {
   console.log(`Mengambil saldo untuk ${puzzles.length} wallet target...\n`);
-  const out = await scrapeMany(puzzles.map((p) => p.address));
+  const out = await scrapeMany(puzzles.map((p) => p.address), opts);
   const byAddr = new Map(out.map((r) => [r.address, r]));
   const merged = puzzles.map((p) => ({ ...p, live: byAddr.get(p.address) }));
   fs.writeFileSync(outFile, JSON.stringify(merged, null, 2));
@@ -97,18 +109,43 @@ export async function snapshotPuzzles(puzzles, outFile = 'data/wallet-status.jso
   return merged;
 }
 
-export async function watchPuzzles(puzzles, { intervalMs = 60_000 } = {}) {
+function rotateIfNeeded(file, maxBytes) {
+  if (!fs.existsSync(file)) return;
+  const sz = fs.statSync(file).size;
+  if (sz < maxBytes) return;
+  const stamp = new Date().toISOString().slice(0, 10);
+  const dir = path.dirname(file);
+  const base = path.basename(file, '.csv');
+  let target = path.join(dir, `${base}-${stamp}.csv`);
+  let n = 1;
+  while (fs.existsSync(target)) {
+    target = path.join(dir, `${base}-${stamp}.${n++}.csv`);
+  }
+  fs.renameSync(file, target);
+}
+
+export async function watchPuzzles(puzzles, opts = {}) {
+  const cfg = loadConfig().watch;
+  const intervalMs = opts.intervalMs ?? cfg.intervalSec * 1000;
+  const rotateMaxBytes = opts.rotateMaxBytes ?? cfg.rotateMaxBytes;
+
   console.log(`Watch mode: cek tiap ${intervalMs / 1000}s. Ctrl+C untuk berhenti.\n`);
   const csvFile = 'data/watch-log.csv';
-  if (!fs.existsSync(csvFile)) {
-    fs.writeFileSync(csvFile, 'timestamp,puzzle,address,balanceBTC,txCount\n');
-  }
+  const ensureHeader = () => {
+    if (!fs.existsSync(csvFile)) {
+      fs.mkdirSync(path.dirname(csvFile), { recursive: true });
+      fs.writeFileSync(csvFile, 'timestamp,puzzle,address,balanceBTC,txCount\n');
+    }
+  };
+  ensureHeader();
+
   const prev = new Map();
   while (true) {
+    rotateIfNeeded(csvFile, rotateMaxBytes);
+    ensureHeader();
     const ts = new Date().toISOString();
     for (const p of puzzles) {
       try {
-        // bypass cache in watch mode so we see live changes
         const r = await scrapeWallet(p.address, { useCache: false });
         const before = prev.get(p.address);
         const tag =

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import * as ckpt from './checkpoint.js';
 import { isDeterministic } from './strategies.js';
 import { bsgs } from './bsgs.js';
+import { loadConfig } from './config.js';
 import {
   bold, dim, cyan, green, yellow, red, gray,
   fmtNum, fmtRate, fmtETA, progressBar, box, createLiveBlock,
@@ -19,26 +20,25 @@ function appendFound(record) {
   fs.appendFileSync(FOUND_LOG, JSON.stringify(record) + '\n');
 }
 
-function shortAddr(a) {
-  return a.length > 22 ? a.slice(0, 10) + '…' + a.slice(-8) : a;
-}
-
 export async function huntPuzzle(puzzle, opts = {}) {
-  const {
-    strategy = 'combined',
-    workers = Math.max(1, os.cpus().length - 1),
-    reportEveryMs = 500,
-    checkpointMs = 10_000,
-    resume = true,
-    durationMs = 0,
-    addressMode = 'compressed',
-  } = opts;
+  const cfg = loadConfig();
+  const huntCfg = cfg.hunt;
+  const bsgsCfg = cfg.bsgs;
+
+  const strategy = opts.strategy ?? huntCfg.strategy;
+  const workers = opts.workers ?? huntCfg.workers ?? Math.max(1, os.cpus().length - 1);
+  const reportEveryMs = opts.reportEveryMs ?? huntCfg.reportEveryMs;
+  const checkpointMs = opts.checkpointMs ?? huntCfg.checkpointMs;
+  const resume = opts.resume ?? huntCfg.resume;
+  const durationMs = opts.durationMs ?? (huntCfg.durationSec * 1000);
+  const addressMode = opts.addressMode ?? huntCfg.addressMode;
+  const mBaby = opts.mBaby ?? bsgsCfg.mBaby;
 
   // Auto-route to BSGS when pubkey is published
   if (puzzle.pubkey) {
     console.log('\n' + cyan('▶ ') + bold(`Puzzle #${puzzle.puzzle}`) +
-      dim(' — pubkey diketahui, pakai BSGS.'));
-    const res = bsgs(puzzle.pubkey, puzzle.rangeStart, puzzle.rangeEnd);
+      dim(` — pubkey diketahui, pakai BSGS (mBaby=${fmtNum(mBaby)}).`));
+    const res = bsgs(puzzle.pubkey, puzzle.rangeStart, puzzle.rangeEnd, BigInt(mBaby));
     if (res.found) {
       const record = {
         puzzle: puzzle.puzzle,

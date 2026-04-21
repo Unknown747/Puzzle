@@ -1,0 +1,25 @@
+{
+  "hunt": {
+    "strategy": "combined",
+    "workers": null,
+    "durationSec": 0,
+    "addressMode": "compressed",
+    "resume": true,
+    "reportEveryMs": 500,
+    "checkpointMs": 10000
+  },
+  "bsgs": {
+    "mBaby": 1048576
+  },
+  "scrape": {
+    "concurrency": 1,
+    "delayMs": 250,
+    "cacheTtlMs": 60000,
+    "retryTries": 4,
+    "retryBaseMs": 600
+  },
+  "watch": {
+    "intervalSec": 60,
+    "rotateMaxBytes": 10485760
+  }
+}
