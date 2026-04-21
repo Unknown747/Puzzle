@@ -1,0 +1,19 @@
+[
+  { "puzzle": 1,  "address": "1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH", "rangeStart": "0x1",                "rangeEnd": "0x1",                "balanceBTC": 0.001 },
+  { "puzzle": 2,  "address": "1CUNEBjYrCn2y1SdiUMohaKUi4wpP326Lb", "rangeStart": "0x2",                "rangeEnd": "0x3",                "balanceBTC": 0.002 },
+  { "puzzle": 3,  "address": "19ZewH8Kk1PDbSNdJ97FP4EiCjTRaZMZQA", "rangeStart": "0x4",                "rangeEnd": "0x7",                "balanceBTC": 0.003 },
+  { "puzzle": 4,  "address": "1EhqbyUMvvs7BfL8goY6qcPbD6YKfPqb7e", "rangeStart": "0x8",                "rangeEnd": "0xf",                "balanceBTC": 0.004 },
+  { "puzzle": 5,  "address": "1E6NuFjCi27W5zoXg8TRdcSRq84zJeBW3k", "rangeStart": "0x10",               "rangeEnd": "0x1f",               "balanceBTC": 0.005 },
+  { "puzzle": 10, "address": "1MEzite4ReNuWaL5Ds17ePKt2dCxWEofwk", "rangeStart": "0x200",              "rangeEnd": "0x3ff",              "balanceBTC": 0.010 },
+  { "puzzle": 15, "address": "1AGRxqDa5WjUKBwHB9XYEjmkv1ucoUUy1s", "rangeStart": "0x4000",             "rangeEnd": "0x7fff",             "balanceBTC": 0.015 },
+  { "puzzle": 20, "address": "1HsMJxNiV7TLxmoF6uJNkydxPFDog4NQum", "rangeStart": "0x80000",            "rangeEnd": "0xfffff",            "balanceBTC": 0.020 },
+  { "puzzle": 25, "address": "187swFMjz1G54ycVU56B7jZFHFTNVQFDiu", "rangeStart": "0x1000000",          "rangeEnd": "0x1ffffff",          "balanceBTC": 0.025 },
+  { "puzzle": 30, "address": "1LHtnpd8nU5VHEMkG2TMYYNUjjLc992bps", "rangeStart": "0x20000000",         "rangeEnd": "0x3fffffff",         "balanceBTC": 0.030 },
+  { "puzzle": 35, "address": "1Eo3uwsCprX5sN3GUvRNdBwQrUreWnTNRR", "rangeStart": "0x400000000",        "rangeEnd": "0x7ffffffff",        "balanceBTC": 0.035 },
+  { "puzzle": 40, "address": "1EeAxcprB2PpCnr34VfZdFrkUWuxyiNEFv", "rangeStart": "0x8000000000",       "rangeEnd": "0xffffffffff",       "balanceBTC": 0.040 },
+  { "puzzle": 45, "address": "1NtiLNGegHWE3Mp9g2JPkgx6wUg4TW7bbk", "rangeStart": "0x100000000000",     "rangeEnd": "0x1fffffffffff",     "balanceBTC": 0.045 },
+  { "puzzle": 50, "address": "1MEzite4ReNuWaL5Ds17ePKt2dCxWEofwk", "rangeStart": "0x2000000000000",    "rangeEnd": "0x3ffffffffffff",    "balanceBTC": 0.050 },
+  { "puzzle": 66, "address": "13zb1hQbWVsc2S7ZTZnP2G4undNNpdh5so", "rangeStart": "0x20000000000000000","rangeEnd": "0x3ffffffffffffffff","balanceBTC": 6.6 },
+  { "puzzle": 67, "address": "1BY8GQbnueYofwSuFAT3USAhGjPrkxDdW9", "rangeStart": "0x40000000000000000","rangeEnd": "0x7ffffffffffffffff","balanceBTC": 6.7 },
+  { "puzzle": 68, "address": "1MVDYgVaSN6iKKEsbzRUAYFrYJadLYZvvZ", "rangeStart": "0x80000000000000000","rangeEnd": "0xfffffffffffffffff","balanceBTC": 6.8 }
+]

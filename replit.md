@@ -1,27 +1,27 @@
-# Workspace
+# BTC Puzzle Hunter
 
-## Overview
+Script Node.js untuk mencari private key Bitcoin Puzzle dengan beberapa strategi kombinasi (random, sequential, combined) dan scraper saldo wallet target dari blockstream.info / mempool.space.
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+## Struktur
 
-## Stack
+- `src/index.js` — entry utama (demo: list target, scrape 5 wallet, hunt puzzle #5)
+- `src/keygen.js` — generator private key + derivasi address (compressed & uncompressed)
+- `src/hunt.js` — engine pencarian key dengan strategi kombinasi
+- `src/scrape.js` — pengambil saldo wallet dari blockchain explorer publik
+- `data/puzzles.json` — daftar target puzzle (#1..#68 sample) dengan range key & address
+- `data/found.json` — hasil key yang ditemukan (auto dibuat)
+- `data/wallet-status.json` — snapshot saldo wallet target (dibuat oleh `scrape`)
 
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **API framework**: Express 5
-- **Database**: PostgreSQL + Drizzle ORM
-- **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
+## Perintah
 
-## Key Commands
+- `npm start` — demo: tampilkan target, scrape 5 wallet, hunt puzzle #5
+- `npm start scrape` — ambil saldo semua wallet target
+- `npm start hunt <nomor> <maxAttempts>` — hunt puzzle tertentu
+- `npm run scrape` — script scraper langsung (argumen: nomor puzzle, kosong = semua)
+- `npm run hunt -- --puzzle 20 --strategy combined --max 1000000`
 
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- `pnpm --filter @workspace/api-server run dev` — run API server locally
+## Strategi pencarian
 
-See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
+- `random` — random walk dalam range puzzle
+- `sequential` — iterasi berurutan
+- `combined` — kombinasi 50% random + 50% strided sweep (default, paling efektif untuk range besar)
