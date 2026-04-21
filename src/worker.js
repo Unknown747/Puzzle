@@ -1,5 +1,13 @@
 import { parentPort, workerData } from 'node:worker_threads';
-import { bigIntToPrivKey, privKeyToAddress, privKeyToWIF, bigIntToHex } from './keygen.js';
+import * as secp from '@noble/secp256k1';
+import {
+  bigIntToPrivKey,
+  pubKeyToHash160,
+  privKeyToWIF,
+  addressToHash160,
+  bigIntToHex,
+  bytesEq20,
+} from './keygen.js';
 import { buildStrategy } from './strategies.js';
 
 const {
@@ -14,9 +22,9 @@ const {
 
 const start = BigInt(puzzle.rangeStart);
 const end = BigInt(puzzle.rangeEnd);
-const target = puzzle.address;
-const resume = resumeFrom ? BigInt(resumeFrom) : null;
+const targetHash = addressToHash160(puzzle.address);
 const checkUncompressed = addressMode !== 'compressed';
+const resume = resumeFrom ? BigInt(resumeFrom) : null;
 
 const gen = buildStrategy(strategy, start, end, {
   workerId,
@@ -32,17 +40,17 @@ const interval = reportEveryMs ?? 500;
 
 async function emit(msg) {
   parentPort.postMessage(msg);
-  // give IPC a tick to flush before any process.exit
   await new Promise((r) => setImmediate(r));
 }
 
 for (const k of gen) {
   const priv = bigIntToPrivKey(k);
 
-  const addrC = privKeyToAddress(priv, true);
-  let hit = addrC === target ? 'compressed' : null;
+  const hC = pubKeyToHash160(secp.getPublicKey(priv, true));
+  let hit = bytesEq20(hC, targetHash) ? 'compressed' : null;
   if (!hit && checkUncompressed) {
-    if (privKeyToAddress(priv, false) === target) hit = 'uncompressed';
+    const hU = pubKeyToHash160(secp.getPublicKey(priv, false));
+    if (bytesEq20(hU, targetHash)) hit = 'uncompressed';
   }
 
   if (hit) {
@@ -51,7 +59,7 @@ for (const k of gen) {
       workerId,
       privateKeyHex: bigIntToHex(k),
       wif: privKeyToWIF(priv, hit === 'compressed'),
-      address: target,
+      address: puzzle.address,
       addressMode: hit,
       attempts,
     });

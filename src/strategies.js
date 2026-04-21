@@ -56,7 +56,13 @@ export function buildStrategy(name, start, end, opts = {}) {
     case 'stride':
       return stride(start, end, BigInt(workerCount), BigInt(workerId));
     case 'combined':
-    default:
-      return combined(start, end, 0.5, resumeFrom);
+    default: {
+      // Per-worker deterministic offset so cursors don't overlap on the
+      // sequential-leaning portion of `combined`.
+      const span = end - start + 1n;
+      const chunk = span / BigInt(workerCount);
+      const wStart = start + chunk * BigInt(workerId);
+      return combined(start, end, 0.5, resumeFrom ?? wStart);
+    }
   }
 }

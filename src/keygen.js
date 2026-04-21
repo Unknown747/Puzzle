@@ -19,12 +19,26 @@ export function bigIntToPrivKey(n) {
   return out;
 }
 
-export function pubKeyToAddress(pubkey) {
-  const h = ripemd160(sha256(pubkey));
+export function pubKeyToHash160(pubkey) {
+  return ripemd160(sha256(pubkey));
+}
+
+export function hash160ToAddress(h160) {
   const payload = new Uint8Array(21);
   payload[0] = VERSION_P2PKH;
-  payload.set(h, 1);
+  payload.set(h160, 1);
   return bs58check.encode(payload);
+}
+
+export function addressToHash160(address) {
+  const decoded = bs58check.decode(address);
+  if (decoded.length !== 21) throw new Error(`Invalid address length: ${decoded.length}`);
+  if (decoded[0] !== VERSION_P2PKH) throw new Error(`Unsupported address version: ${decoded[0]}`);
+  return decoded.slice(1);
+}
+
+export function pubKeyToAddress(pubkey) {
+  return hash160ToAddress(pubKeyToHash160(pubkey));
 }
 
 export function privKeyToAddress(priv, compressed = true) {
@@ -51,4 +65,9 @@ export function deriveBoth(priv) {
 
 export function bigIntToHex(n) {
   return n.toString(16).padStart(64, '0');
+}
+
+export function bytesEq20(a, b) {
+  for (let i = 0; i < 20; i++) if (a[i] !== b[i]) return false;
+  return true;
 }

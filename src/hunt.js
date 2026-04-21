@@ -6,36 +6,21 @@ import { fileURLToPath } from 'node:url';
 import * as ckpt from './checkpoint.js';
 import { isDeterministic } from './strategies.js';
 import { bsgs } from './bsgs.js';
+import {
+  bold, dim, cyan, green, yellow, red, gray,
+  fmtNum, fmtRate, fmtETA, progressBar, box, createLiveBlock,
+} from './ui.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FOUND_LOG = 'data/found.jsonl';
 
-function fmtNum(n) {
-  return n.toLocaleString('en-US');
-}
-
-function fmtRate(n) {
-  if (!isFinite(n) || n <= 0) return '0/s';
-  if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M/s';
-  if (n >= 1e3) return (n / 1e3).toFixed(2) + 'k/s';
-  return n.toFixed(0) + '/s';
-}
-
-function fmtETA(seconds) {
-  if (!isFinite(seconds) || seconds < 0) return '∞';
-  const y = seconds / (365.25 * 86400);
-  if (y > 1e6) return y.toExponential(2) + ' tahun';
-  if (y > 1) return y.toFixed(1) + ' tahun';
-  const d = seconds / 86400;
-  if (d > 1) return d.toFixed(1) + ' hari';
-  const h = seconds / 3600;
-  if (h > 1) return h.toFixed(1) + ' jam';
-  return (seconds / 60).toFixed(1) + ' menit';
-}
-
 function appendFound(record) {
   fs.mkdirSync(path.dirname(FOUND_LOG), { recursive: true });
   fs.appendFileSync(FOUND_LOG, JSON.stringify(record) + '\n');
+}
+
+function shortAddr(a) {
+  return a.length > 22 ? a.slice(0, 10) + '…' + a.slice(-8) : a;
 }
 
 export async function huntPuzzle(puzzle, opts = {}) {
@@ -49,9 +34,10 @@ export async function huntPuzzle(puzzle, opts = {}) {
     addressMode = 'compressed',
   } = opts;
 
-  // Auto-route to BSGS if pubkey is published
+  // Auto-route to BSGS when pubkey is published
   if (puzzle.pubkey) {
-    console.log(`\n[BSGS] Pubkey diketahui untuk puzzle #${puzzle.puzzle}, pakai Baby-step Giant-step.`);
+    console.log('\n' + cyan('▶ ') + bold(`Puzzle #${puzzle.puzzle}`) +
+      dim(' — pubkey diketahui, pakai BSGS.'));
     const res = bsgs(puzzle.pubkey, puzzle.rangeStart, puzzle.rangeEnd);
     if (res.found) {
       const record = {
@@ -62,11 +48,11 @@ export async function huntPuzzle(puzzle, opts = {}) {
         foundAt: new Date().toISOString(),
       };
       appendFound(record);
-      console.log('\n*** KEY DITEMUKAN (BSGS) ***');
+      console.log('\n' + green(bold('*** KEY DITEMUKAN (BSGS) ***')));
       console.log(JSON.stringify(record, null, 2));
       return record;
     }
-    console.log('BSGS selesai tanpa hasil dalam range yang diberikan.');
+    console.log(yellow('BSGS selesai tanpa hasil dalam range yang diberikan.'));
     return null;
   }
 
@@ -77,13 +63,17 @@ export async function huntPuzzle(puzzle, opts = {}) {
   const totalPrior = saved?.totalAttempts ?? 0;
   const deterministic = isDeterministic(strategy);
 
-  console.log('\n┌─────────────────────────────────────────────────┐');
-  console.log(`│  Puzzle #${puzzle.puzzle}  →  ${puzzle.address}`);
-  console.log(`│  Range  : ${puzzle.rangeStart} .. ${puzzle.rangeEnd}`);
-  console.log(`│  Saldo  : ${puzzle.balanceBTC} BTC   Status: ${puzzle.status ?? '?'}`);
-  console.log(`│  Workers: ${workers}   Strategi: ${strategy}   Mode: ${addressMode}`);
-  console.log(`│  Resume : ${saved ? `+${fmtNum(totalPrior)} dari sesi sebelumnya` : 'sesi baru'}`);
-  console.log('└─────────────────────────────────────────────────┘\n');
+  console.log('\n' + box(`PUZZLE #${puzzle.puzzle}`, [
+    cyan('Address  ') + puzzle.address,
+    cyan('Range    ') + dim(puzzle.rangeStart) + ' .. ' + dim(puzzle.rangeEnd),
+    cyan('Span     ') + fmtNum(span) + dim(' keys'),
+    cyan('Saldo    ') + green(puzzle.balanceBTC + ' BTC') +
+      dim('  ·  Status: ') + (puzzle.status === 'open' ? yellow(puzzle.status) : green(puzzle.status ?? '?')),
+    cyan('Workers  ') + bold(String(workers)) + dim('  ·  Strategi: ') + bold(strategy) +
+      dim('  ·  Mode: ') + bold(addressMode),
+    cyan('Resume   ') + (saved ? green(`+${fmtNum(totalPrior)} dari sesi sebelumnya`) : dim('sesi baru')),
+  ], 64));
+  console.log('');
 
   const workerScript = path.join(__dirname, 'worker.js');
   const stats = Array.from({ length: workers }, () => ({ attempts: 0, lastKey: '0' }));
@@ -122,13 +112,18 @@ export async function huntPuzzle(puzzle, opts = {}) {
     });
   }
 
-  const onSigint = () => {
-    console.log('\n\n[!] Dihentikan, menyimpan checkpoint...');
+  const onSignal = (sig) => {
+    console.log('\n\n' + yellow(`[!] ${sig} diterima — menyimpan checkpoint...`));
     persist();
     stop();
-    process.exit(130);
+    process.exit(sig === 'SIGINT' ? 130 : 143);
   };
-  process.once('SIGINT', onSigint);
+  const sigint = () => onSignal('SIGINT');
+  const sigterm = () => onSignal('SIGTERM');
+  process.once('SIGINT', sigint);
+  process.once('SIGTERM', sigterm);
+
+  const live = createLiveBlock();
 
   const result = await new Promise((resolve) => {
     let lastReport = Date.now();
@@ -141,16 +136,23 @@ export async function huntPuzzle(puzzle, opts = {}) {
       const dt = (Date.now() - t0) / 1000;
       const rateNow = (total - lastTotal) / ((Date.now() - lastReport) / 1000);
       const rateAvg = total / dt;
-      const label = deterministic ? 'coverage' : 'samples';
-      const ratio = Number((BigInt(grand) * 10000n) / span) / 100;
-      const eta = deterministic ? (Number(span) - grand) / rateAvg : Infinity;
+      const ratio = Number((BigInt(grand) * 10000n) / span) / 10000;
+      const eta = deterministic && rateAvg > 0
+        ? (Number(span) - grand) / rateAvg
+        : Infinity;
       lastTotal = total;
       lastReport = Date.now();
 
-      process.stdout.write(
-        `\r  attempts=${fmtNum(grand)}  rate=${fmtRate(rateNow)}  ` +
-        `avg=${fmtRate(rateAvg)}  ${label}=${ratio.toExponential(2)}%  ETA=${fmtETA(eta)}     `
-      );
+      const label = deterministic ? 'coverage' : 'samples ';
+      live.render([
+        '  ' + cyan('attempts ') + bold(fmtNum(grand)) +
+          dim('   now ') + green(fmtRate(rateNow)) +
+          dim('   avg ') + green(fmtRate(rateAvg)),
+        '  ' + cyan(label) + ' ' + progressBar(ratio) + ' ' +
+          bold((ratio * 100).toExponential(2) + '%'),
+        '  ' + cyan('ETA      ') + (deterministic ? bold(fmtETA(eta)) : dim('∞ (non-deterministik)')),
+        '  ' + gray(`uptime ${dt.toFixed(1)}s · checkpoint tiap ${checkpointMs/1000}s`),
+      ]);
 
       if (Date.now() - lastCheckpoint > checkpointMs) {
         persist();
@@ -194,18 +196,25 @@ export async function huntPuzzle(puzzle, opts = {}) {
           stats[msg.workerId].lastKey = msg.lastKey;
         }
       });
-      w.on('error', (e) => console.error('\n[worker error]', e.message));
+      w.on('error', (e) => console.error('\n' + red('[worker error] ') + e.message));
     });
   });
 
-  process.removeListener('SIGINT', onSigint);
+  process.removeListener('SIGINT', sigint);
+  process.removeListener('SIGTERM', sigterm);
+  live.finalize();
   console.log('');
 
   if (result) {
-    console.log('\n*** KEY DITEMUKAN ***');
-    console.log(JSON.stringify(result, null, 2));
+    console.log('\n' + green(bold('╔════ KEY DITEMUKAN ════╗')));
+    console.log(green('  address  ') + bold(result.address));
+    console.log(green('  privkey  ') + bold(result.privateKeyHex));
+    console.log(green('  WIF      ') + bold(result.wif));
+    console.log(green('  mode     ') + result.addressMode);
+    console.log(green('  attempts ') + fmtNum(result.totalAttempts) + dim(`  in ${(result.elapsedMs/1000).toFixed(1)}s`));
+    console.log(green('  saved to ') + dim(FOUND_LOG));
   } else {
-    console.log('\nWaktu habis / dihentikan tanpa hasil. Checkpoint disimpan.');
+    console.log(yellow('\nWaktu habis / dihentikan tanpa hasil. Checkpoint disimpan.'));
   }
   return result;
 }

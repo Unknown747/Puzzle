@@ -3,12 +3,12 @@
   "address": "1HsMJxNiV7TLxmoF6uJNkydxPFDog4NQum",
   "strategy": "stride",
   "workers": 4,
-  "totalAttempts": 64246,
+  "totalAttempts": 128362,
   "workerLastKey": [
-    "587848",
-    "588821",
-    "588374",
-    "589083"
+    "587864",
+    "588557",
+    "587866",
+    "589319"
   ],
-  "updatedAt": "2026-04-21T23:39:28.681Z"
+  "updatedAt": "2026-04-21T23:48:52.633Z"
 }

@@ -49,3 +49,10 @@ test('privKeyToAddress idempoten', () => {
   const a2 = privKeyToAddress(priv, true);
   assert.equal(a1, a2);
 });
+
+test('puzzle #5 (key 0x15): kompresi cocok dengan address resmi', () => {
+  // 21 (0x15) → known compressed P2PKH for puzzle #5
+  const priv = bigIntToPrivKey(0x15n);
+  const { compressed } = deriveBoth(priv);
+  assert.equal(compressed.address, '1E6NuFjCi27W5zoXg8TRdcSRq84zJeBW3k');
+});

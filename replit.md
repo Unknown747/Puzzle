@@ -18,14 +18,15 @@ Script Node.js untuk Bitcoin Puzzle: pencarian private key paralel multi-worker,
 
 ```
 src/
-  index.js       CLI dispatcher
+  index.js       CLI dispatcher + parser flag + validasi puzzles.json
   hunt.js        Orkestrator multi-worker + statistik + checkpoint
-  worker.js      Worker thread (key derivation + match)
-  keygen.js     Address & WIF derivation (P2PKH compressed/uncompressed)
+  worker.js      Worker thread (compare hash160 langsung, no base58 di hot loop)
+  keygen.js      Address & WIF derivation, hash160 helpers
   strategies.js  Generator key (random / sequential / stride / combined)
-  scrape.js      Wallet scraper + watch mode (retry/backoff)
+  scrape.js      Wallet scraper + watch mode (retry/backoff + cache 60s)
   bsgs.js        Baby-step Giant-step solver
-  checkpoint.js  Save/load posisi pencarian
+  checkpoint.js  Save/load posisi (atomic write via tmp+rename)
+  ui.js          ANSI helpers, progress bar, redrawable status block
 test/
   keygen.test.js
   strategies.test.js
