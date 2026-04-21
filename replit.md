@@ -1,27 +1,66 @@
-# BTC Puzzle Hunter
+# BTC Puzzle Hunter v2
 
-Script Node.js untuk mencari private key Bitcoin Puzzle dengan beberapa strategi kombinasi (random, sequential, combined) dan scraper saldo wallet target dari blockstream.info / mempool.space.
+Script Node.js untuk Bitcoin Puzzle: pencarian private key paralel multi-worker, scraper saldo wallet target, monitoring real-time.
+
+## Fitur
+
+- **Multi-worker parallel** — `worker_threads`, otomatis pakai semua core CPU
+- **Checkpoint & resume** — Ctrl+C aman, lanjut dari posisi terakhir
+- **4 strategi** — `random`, `sequential`, `stride`, `combined`
+- **Live statistik** — rate, avg, coverage %, ETA
+- **Scraper saldo** — blockstream.info + mempool.space dengan retry/backoff
+- **Watch mode** — monitor saldo target, alert kalau ada aktivitas baru
+- **BSGS** — Baby-step Giant-step (untuk puzzle dengan pubkey terkuak)
+- **Test suite** — `node:test` (9 test, verifikasi keygen + strategi)
+- **Library cepat & ringan** — `@noble/secp256k1` + `@noble/hashes` (no native deps)
 
 ## Struktur
 
-- `src/index.js` — entry utama (demo: list target, scrape 5 wallet, hunt puzzle #5)
-- `src/keygen.js` — generator private key + derivasi address (compressed & uncompressed)
-- `src/hunt.js` — engine pencarian key dengan strategi kombinasi
-- `src/scrape.js` — pengambil saldo wallet dari blockchain explorer publik
-- `data/puzzles.json` — daftar target puzzle (#1..#68 sample) dengan range key & address
-- `data/found.json` — hasil key yang ditemukan (auto dibuat)
-- `data/wallet-status.json` — snapshot saldo wallet target (dibuat oleh `scrape`)
+```
+src/
+  index.js       CLI dispatcher
+  hunt.js        Orkestrator multi-worker + statistik + checkpoint
+  worker.js      Worker thread (key derivation + match)
+  keygen.js     Address & WIF derivation (P2PKH compressed/uncompressed)
+  strategies.js  Generator key (random / sequential / stride / combined)
+  scrape.js      Wallet scraper + watch mode (retry/backoff)
+  bsgs.js        Baby-step Giant-step solver
+  checkpoint.js  Save/load posisi pencarian
+test/
+  keygen.test.js
+  strategies.test.js
+data/
+  puzzles.json        Daftar 35 target (#1-#160)
+  found.json          Hasil key yang ditemukan (auto)
+  wallet-status.json  Snapshot saldo (dari scrape)
+  watch-log.csv       Log monitoring (dari watch)
+  checkpoints/        Checkpoint per puzzle
+```
 
 ## Perintah
 
-- `npm start` — demo: tampilkan target, scrape 5 wallet, hunt puzzle #5
-- `npm start scrape` — ambil saldo semua wallet target
-- `npm start hunt <nomor> <maxAttempts>` — hunt puzzle tertentu
-- `npm run scrape` — script scraper langsung (argumen: nomor puzzle, kosong = semua)
-- `npm run hunt -- --puzzle 20 --strategy combined --max 1000000`
+```bash
+npm start                              # menu + scrape 5 wallet pertama
+npm start list                         # daftar semua target
+npm start scrape [nomor...]            # ambil saldo (default: semua)
+npm start watch [interval-detik]       # monitoring real-time
+npm start hunt --puzzle N [opsi]       # hunt puzzle
+npm test                               # jalankan test suite
 
-## Strategi pencarian
+# Opsi hunt
+--puzzle N            wajib
+--strategy NAME       random | sequential | stride | combined (default: combined)
+--workers N           jumlah worker (default: cpus-1)
+--duration SECS       durasi maks (0 = tanpa batas)
+--no-resume           abaikan checkpoint
 
-- `random` — random walk dalam range puzzle
-- `sequential` — iterasi berurutan
-- `combined` — kombinasi 50% random + 50% strided sweep (default, paling efektif untuk range besar)
+# Contoh
+npm start hunt --puzzle 67 --strategy stride --workers 8
+npm start hunt --puzzle 20 --duration 60
+npm start scrape 67 68 71
+npm start watch 30
+```
+
+## Catatan realistis
+
+JavaScript di CPU ~~5-10 kkeys/sec per core~~. Puzzle #67+ butuh GPU (BitCrack/VanitySearch/Kangaroo) untuk peluang riil. Script ini tepat untuk: belajar, monitoring target, eksperimen strategi, atau menyelesaikan puzzle kecil (#1-#30 dalam hitungan detik-menit).

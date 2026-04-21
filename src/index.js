@@ -1,55 +1,106 @@
-import fs from 'fs';
-import { scrapeMany } from './scrape.js';
+import fs from 'node:fs';
 import { huntPuzzle } from './hunt.js';
+import { snapshotPuzzles, scrapeMany, watchPuzzles } from './scrape.js';
 
-function banner() {
-  console.log('==================================================');
-  console.log('   BTC PUZZLE HUNTER + WALLET TARGET SCRAPER');
-  console.log('==================================================\n');
+const PUZZLES = JSON.parse(fs.readFileSync('data/puzzles.json', 'utf8'));
+
+function getPuzzle(num) {
+  const p = PUZZLES.find((x) => x.puzzle === Number(num));
+  if (!p) throw new Error(`Puzzle #${num} tidak ada di data/puzzles.json`);
+  return p;
+}
+
+function parseFlags(args) {
+  const out = {};
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a.startsWith('--')) out[a.slice(2)] = args[i + 1]?.startsWith('--') ? true : args[++i] ?? true;
+  }
+  return out;
+}
+
+function help() {
+  console.log(`
+BTC Puzzle Hunter v2
+
+Penggunaan:
+  npm start                              Tampilkan menu + scrape 5 wallet pertama
+  npm start list                         Daftar semua target puzzle
+  npm start scrape [nomor...]            Ambil saldo wallet (default: semua)
+  npm start watch [interval-detik]       Monitor saldo terus-menerus
+  npm start hunt --puzzle N [opsi]       Hunt puzzle dengan worker thread
+
+Opsi hunt:
+  --puzzle N            Nomor puzzle (wajib)
+  --strategy NAME       random | sequential | stride | combined  (default: combined)
+  --workers N           Jumlah worker (default: cpus-1)
+  --duration SECS       Durasi maksimal (0 = tanpa batas)
+  --no-resume           Abaikan checkpoint, mulai dari awal
+
+Contoh:
+  npm start hunt --puzzle 20 --duration 60
+  npm start hunt --puzzle 67 --strategy stride --workers 8
+  npm start scrape 67 68 71
+  npm start watch 30
+`);
+}
+
+function listPuzzles() {
+  console.log('\nDaftar target puzzle:\n');
+  console.log('  #   Status  Saldo BTC   Address');
+  console.log('  ───────────────────────────────────────────────────────────');
+  for (const p of PUZZLES) {
+    const status = (p.status ?? '?').padEnd(7);
+    const bal = String(p.balanceBTC).padStart(8);
+    console.log(`  ${String(p.puzzle).padStart(3)} ${status} ${bal}    ${p.address}`);
+  }
+  console.log(`\n  Total: ${PUZZLES.length} target ` +
+    `(${PUZZLES.filter(x => x.status === 'open').length} terbuka, ` +
+    `${PUZZLES.filter(x => x.status === 'solved').length} terpecahkan)\n`);
 }
 
 async function main() {
-  banner();
-  const puzzles = JSON.parse(fs.readFileSync('data/puzzles.json', 'utf8'));
+  const [cmd, ...rest] = process.argv.slice(2);
 
-  const args = process.argv.slice(2);
-  const mode = args[0] || 'demo';
+  if (cmd === 'help' || cmd === '--help' || cmd === '-h') return help();
+  if (cmd === 'list') return listPuzzles();
 
-  if (mode === 'scrape') {
-    await scrapeMany(puzzles.map((p) => p.address));
-    return;
+  if (cmd === 'scrape') {
+    const ids = rest.filter((a) => !isNaN(Number(a))).map(Number);
+    const targets = ids.length ? PUZZLES.filter((p) => ids.includes(p.puzzle)) : PUZZLES;
+    return void (await snapshotPuzzles(targets));
   }
 
-  if (mode === 'hunt') {
-    const num = Number(args[1] || 5);
-    const max = Number(args[2] || 200000);
-    const p = puzzles.find((x) => x.puzzle === num);
-    if (!p) return console.error('Puzzle', num, 'tidak ada di data/puzzles.json');
-    huntPuzzle(p, { strategy: 'combined', maxAttempts: max });
-    return;
+  if (cmd === 'watch') {
+    const interval = Number(rest[0] || 60) * 1000;
+    return void (await watchPuzzles(PUZZLES.filter((p) => p.status === 'open'), { intervalMs: interval }));
   }
 
-  console.log('Daftar puzzle target:');
-  for (const p of puzzles) {
-    console.log(
-      `  #${String(p.puzzle).padStart(3)}  ${p.address}  ` +
-      `(${p.balanceBTC} BTC, range ${p.rangeStart}..${p.rangeEnd})`
-    );
+  if (cmd === 'hunt') {
+    const f = parseFlags(rest);
+    if (!f.puzzle) {
+      console.error('Wajib --puzzle <nomor>. Lihat: npm start help');
+      process.exit(1);
+    }
+    const p = getPuzzle(f.puzzle);
+    return void (await huntPuzzle(p, {
+      strategy: f.strategy || 'combined',
+      workers: f.workers ? Number(f.workers) : undefined,
+      durationMs: f.duration ? Number(f.duration) * 1000 : 0,
+      resume: f['no-resume'] ? false : true,
+    }));
   }
 
-  console.log('\nMengambil saldo live untuk 5 wallet pertama...\n');
-  await scrapeMany(puzzles.slice(0, 5).map((p) => p.address));
-
-  console.log('\nMencoba memecahkan Puzzle #5 dengan strategi kombinasi...');
-  const target = puzzles.find((p) => p.puzzle === 5);
-  huntPuzzle(target, { strategy: 'combined', maxAttempts: 50_000, reportEvery: 10_000 });
-
-  console.log('\nSelesai. Perintah lain:');
-  console.log('  npm start scrape         # ambil saldo semua target');
-  console.log('  npm start hunt 5 100000  # cari key puzzle #5');
+  console.log('==================================================');
+  console.log('   BTC PUZZLE HUNTER v2 — multi-worker + scraper');
+  console.log('==================================================');
+  listPuzzles();
+  console.log('Live snapshot 5 wallet pertama:\n');
+  await scrapeMany(PUZZLES.slice(0, 5).map((p) => p.address));
+  console.log('\nKetik `npm start help` untuk perintah lengkap.');
 }
 
 main().catch((e) => {
-  console.error(e);
+  console.error('Error:', e.message);
   process.exit(1);
 });

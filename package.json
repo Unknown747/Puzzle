@@ -1,18 +1,19 @@
 {
   "name": "btc-puzzle-hunter",
-  "version": "1.0.0",
-  "description": "Bitcoin Puzzle solver with key combination strategies and target wallet scraper",
+  "version": "2.0.0",
+  "description": "Bitcoin Puzzle hunter (multi-worker, checkpointed) + wallet scraper",
   "type": "module",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "scrape": "node src/scrape.js",
-    "hunt": "node src/hunt.js"
+    "scrape": "node src/index.js scrape",
+    "hunt": "node src/index.js hunt",
+    "watch": "node src/index.js watch",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
-    "bitcoinjs-lib": "^6.1.6",
-    "tiny-secp256k1": "^2.2.3",
-    "ecpair": "^2.1.0",
-    "node-fetch": "^3.3.2"
+    "@noble/secp256k1": "^2.1.0",
+    "@noble/hashes": "^1.5.0",
+    "bs58check": "^4.0.0"
   }
 }

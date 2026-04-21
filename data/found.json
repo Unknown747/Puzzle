@@ -4,23 +4,9 @@
     "address": "1E6NuFjCi27W5zoXg8TRdcSRq84zJeBW3k",
     "privateKeyHex": "0000000000000000000000000000000000000000000000000000000000000015",
     "wif": "KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU7Dq8Au4Pv",
-    "foundAt": "2026-04-21T23:08:53.962Z",
-    "attempts": 12
-  },
-  {
-    "puzzle": 5,
-    "address": "1E6NuFjCi27W5zoXg8TRdcSRq84zJeBW3k",
-    "privateKeyHex": "0000000000000000000000000000000000000000000000000000000000000015",
-    "wif": "KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU7Dq8Au4Pv",
-    "foundAt": "2026-04-21T23:09:10.493Z",
-    "attempts": 18
-  },
-  {
-    "puzzle": 5,
-    "address": "1E6NuFjCi27W5zoXg8TRdcSRq84zJeBW3k",
-    "privateKeyHex": "0000000000000000000000000000000000000000000000000000000000000015",
-    "wif": "KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU7Dq8Au4Pv",
-    "foundAt": "2026-04-21T23:09:57.459Z",
-    "attempts": 2
+    "foundAt": "2026-04-21T23:21:43.695Z",
+    "workerAttempts": 1,
+    "totalAttempts": 10,
+    "elapsedMs": 265
   }
 ]

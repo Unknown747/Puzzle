@@ -1,71 +1,50 @@
-import * as bitcoin from 'bitcoinjs-lib';
-import { ECPairFactory } from 'ecpair';
-import * as ecc from 'tiny-secp256k1';
-import crypto from 'crypto';
+import * as secp from '@noble/secp256k1';
+import { sha256 } from '@noble/hashes/sha256';
+import { ripemd160 } from '@noble/hashes/ripemd160';
+import { hmac } from '@noble/hashes/hmac';
+import bs58check from 'bs58check';
 
-const ECPair = ECPairFactory(ecc);
-const network = bitcoin.networks.bitcoin;
+secp.etc.hmacSha256Sync = (k, ...m) => hmac(sha256, k, secp.etc.concatBytes(...m));
 
-export function privateKeyToAddress(privKeyHex, compressed = true) {
-  const padded = privKeyHex.padStart(64, '0');
-  const buf = Buffer.from(padded, 'hex');
-  const keyPair = ECPair.fromPrivateKey(buf, { network, compressed });
-  const { address } = bitcoin.payments.p2pkh({
-    pubkey: keyPair.publicKey,
-    network,
-  });
-  return { address, wif: keyPair.toWIF() };
+const VERSION_P2PKH = 0x00;
+const VERSION_WIF = 0x80;
+
+export function bigIntToPrivKey(n) {
+  const hex = n.toString(16).padStart(64, '0');
+  return Uint8Array.from(Buffer.from(hex, 'hex'));
 }
 
-export function privateKeyToBothAddresses(privKeyHex) {
+export function pubKeyToAddress(pubkey) {
+  const h = ripemd160(sha256(pubkey));
+  const payload = new Uint8Array(21);
+  payload[0] = VERSION_P2PKH;
+  payload.set(h, 1);
+  return bs58check.encode(payload);
+}
+
+export function privKeyToAddress(priv, compressed = true) {
+  const pub = secp.getPublicKey(priv, compressed);
+  return pubKeyToAddress(pub);
+}
+
+export function privKeyToWIF(priv, compressed = true) {
+  const len = compressed ? 34 : 33;
+  const out = new Uint8Array(len);
+  out[0] = VERSION_WIF;
+  out.set(priv, 1);
+  if (compressed) out[33] = 0x01;
+  return bs58check.encode(out);
+}
+
+export function deriveBoth(priv) {
+  const pubC = secp.getPublicKey(priv, true);
+  const pubU = secp.getPublicKey(priv, false);
   return {
-    compressed: privateKeyToAddress(privKeyHex, true),
-    uncompressed: privateKeyToAddress(privKeyHex, false),
+    compressed: { address: pubKeyToAddress(pubC), wif: privKeyToWIF(priv, true) },
+    uncompressed: { address: pubKeyToAddress(pubU), wif: privKeyToWIF(priv, false) },
   };
 }
 
-export function randomBigIntInRange(start, end) {
-  const range = end - start + 1n;
-  const bytes = Math.ceil(range.toString(2).length / 8);
-  let rnd;
-  do {
-    const buf = crypto.randomBytes(bytes);
-    rnd = BigInt('0x' + buf.toString('hex'));
-  } while (rnd >= range);
-  return start + rnd;
-}
-
-export function* sequentialRange(start, end, step = 1n) {
-  for (let k = start; k <= end; k += step) yield k;
-}
-
-export function* randomWalk(start, end, count = Infinity) {
-  let i = 0;
-  while (i < count) {
-    yield randomBigIntInRange(start, end);
-    i++;
-  }
-}
-
-export function* stridedSearch(start, end, stride = 1024n, offset = 0n) {
-  for (let k = start + offset; k <= end; k += stride) yield k;
-}
-
-export function* combinedStrategy(start, end, randomRatio = 0.5) {
-  const span = end - start;
-  let cursor = start;
-  const stride = span > 1000000n ? span / 1000000n : 1n;
-  while (true) {
-    if (Math.random() < randomRatio) {
-      yield randomBigIntInRange(start, end);
-    } else {
-      if (cursor > end) cursor = start;
-      yield cursor;
-      cursor += stride;
-    }
-  }
-}
-
 export function bigIntToHex(n) {
-  return n.toString(16);
+  return n.toString(16).padStart(64, '0');
 }
