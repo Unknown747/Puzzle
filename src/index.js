@@ -1,9 +1,10 @@
 import fs from 'node:fs';
 import { huntPuzzle } from './hunt.js';
-import { snapshotPuzzles, scrapeMany, scrapeWallet, watchPuzzles } from './scrape.js';
+import { snapshotPuzzles, scrapeWallet, watchPuzzles } from './scrape.js';
 import { loadConfig } from './config.js';
 import { bigIntToPrivKey, privKeyToAddress } from './keygen.js';
-import { banner, bold, cyan, green, yellow, red, dim, gray } from './ui.js';
+import { bold, cyan, green, yellow, red, dim, gray, banner } from './ui.js';
+import { createPrompt, printMenuHeader, printMenuOptions } from './menu.js';
 
 const PUZZLES = JSON.parse(fs.readFileSync('data/puzzles.json', 'utf8'));
 
@@ -43,12 +44,22 @@ function getPuzzle(num) {
   return p;
 }
 
+function puzzleStats() {
+  return {
+    total: PUZZLES.length,
+    open: PUZZLES.filter((x) => x.status === 'open').length,
+    solved: PUZZLES.filter((x) => x.status === 'solved').length,
+  };
+}
+
 function help() {
   console.log(`
 ${bold('BTC Puzzle Hunter v2')}
 
-${cyan('Penggunaan:')}
-  npm start                              Tampilkan menu + scrape 5 wallet pertama
+${cyan('Cara cepat:')}
+  npm start                              Menu interaktif (paling mudah)
+
+${cyan('Mode CLI langsung:')}
   npm start list                         Daftar semua target puzzle
   npm start verify                       Validasi data + keygen + konektivitas API
   npm start scrape [nomor...] [opsi]     Ambil saldo wallet
@@ -61,21 +72,13 @@ ${cyan('Opsi hunt (override config.json):')}
   --workers N           Jumlah worker
   --duration SECS       Durasi maksimal (0 = tanpa batas)
   --address-mode MODE   compressed | both
-  --mbaby N             Ukuran tabel BSGS (hanya untuk puzzle dengan pubkey)
+  --mbaby N             Ukuran tabel BSGS (untuk puzzle dengan pubkey)
   --no-resume           Abaikan checkpoint, mulai dari awal
 
 ${cyan('Opsi scrape:')}
-  --concurrency N       Jumlah request paralel (default dari config.json)
+  --concurrency N       Jumlah request paralel
 
 ${cyan('Default & tuning di config.json (root project)')}.
-
-${cyan('Contoh:')}
-  npm start hunt --puzzle 20 --duration 60
-  npm start hunt --puzzle 67 --strategy stride --workers 8
-  npm start scrape --concurrency 3
-  npm start scrape 67 68 71
-  npm start watch 30
-  npm start verify
 `);
 }
 
@@ -88,9 +91,9 @@ function listPuzzles() {
     const bal = String(p.balanceBTC).padStart(8);
     console.log(`  ${dim(String(p.puzzle).padStart(3))}  ${status}  ${bal}    ${p.address}`);
   }
-  const open = PUZZLES.filter((x) => x.status === 'open').length;
-  const solved = PUZZLES.filter((x) => x.status === 'solved').length;
-  console.log('\n  ' + dim(`Total: ${PUZZLES.length} target (`) + yellow(open + ' terbuka') + dim(', ') + green(solved + ' terpecahkan') + dim(')') + '\n');
+  const s = puzzleStats();
+  console.log('\n  ' + dim(`Total: ${s.total} target (`) + yellow(s.open + ' terbuka') +
+    dim(', ') + green(s.solved + ' terpecahkan') + dim(')') + '\n');
 }
 
 async function verify() {
@@ -128,6 +131,98 @@ async function verify() {
   console.log('');
 }
 
+async function interactiveHunt(p) {
+  const openPuzzles = PUZZLES.filter((x) => x.status === 'open');
+  console.log('\n' + bold('Puzzle yang terbuka:'));
+  for (const q of openPuzzles) {
+    console.log(`  ${dim(String(q.puzzle).padStart(3))}  ${yellow('open')}  ${q.balanceBTC} BTC  ${q.address}`);
+  }
+  console.log('');
+
+  const num = await p.ask('Nomor puzzle yang mau di-hunt?', '20');
+  let puzzle;
+  try {
+    puzzle = getPuzzle(num);
+  } catch (e) {
+    console.log(red('  ✗ ' + e.message));
+    return;
+  }
+
+  const strategy = await p.choose('Strategi pencarian:', [
+    { label: 'combined  ' + dim('(random + sequential — default, paling fleksibel)'), value: 'combined' },
+    { label: 'stride    ' + dim('(deterministik, terbagi merata antar worker)'), value: 'stride' },
+    { label: 'sequential' + dim(' (deterministik, dari awal range)'), value: 'sequential' },
+    { label: 'random    ' + dim('(murni acak)'), value: 'random' },
+  ]);
+  const workers = await p.ask('Jumlah worker (kosong = otomatis cpus-1):', '');
+  const duration = await p.ask('Durasi maksimal dalam detik (0 = tanpa batas):', '0');
+
+  p.close();
+
+  const opts = { strategy, durationMs: Number(duration) * 1000 };
+  if (workers) opts.workers = Number(workers);
+  await huntPuzzle(puzzle, opts);
+}
+
+async function interactiveScrape(p) {
+  const which = await p.choose('Pilih wallet:', [
+    { label: 'Semua puzzle (' + PUZZLES.length + ' wallet)', value: 'all' },
+    { label: 'Hanya puzzle yang terbuka', value: 'open' },
+    { label: 'Pilih nomor manual', value: 'pick' },
+  ]);
+  let targets;
+  if (which === 'all') targets = PUZZLES;
+  else if (which === 'open') targets = PUZZLES.filter((x) => x.status === 'open');
+  else {
+    const ids = (await p.ask('Daftar nomor (pisah spasi, mis. "67 68 71"):', '')).split(/\s+/).map(Number).filter(Boolean);
+    targets = PUZZLES.filter((x) => ids.includes(x.puzzle));
+  }
+  const conc = await p.ask('Jumlah request paralel:', String(loadConfig().scrape.concurrency));
+  p.close();
+  await snapshotPuzzles(targets, 'data/wallet-status.json', { concurrency: Number(conc) });
+}
+
+async function interactiveWatch(p) {
+  const sec = await p.ask('Interval cek (detik):', String(loadConfig().watch.intervalSec));
+  p.close();
+  await watchPuzzles(PUZZLES.filter((x) => x.status === 'open'), { intervalMs: Number(sec) * 1000 });
+}
+
+async function runMenu() {
+  // Non-TTY fallback: tampilkan ringkasan + petunjuk, jangan blok menunggu input
+  if (!process.stdin.isTTY) {
+    printMenuHeader(puzzleStats());
+    listPuzzles();
+    console.log(dim('Mode non-interaktif terdeteksi (workflow/log).') + '\n' +
+      dim('Jalankan `npm start` di terminal untuk menu interaktif, ') +
+      dim('atau pakai sub-perintah: `npm start hunt --puzzle N`, `scrape`, `watch`, `verify`, `help`.'));
+    return;
+  }
+
+  printMenuHeader(puzzleStats());
+  printMenuOptions();
+  const p = createPrompt();
+  const choice = await p.ask('Masukkan nomor pilihan:', '1');
+
+  switch (choice) {
+    case '1': return interactiveHunt(p);
+    case '2': return interactiveScrape(p);
+    case '3': return interactiveWatch(p);
+    case '4': p.close(); return listPuzzles();
+    case '5': p.close(); return verify();
+    case '6': p.close(); return help();
+    case '0':
+    case 'q':
+    case 'exit':
+      p.close();
+      console.log(dim('Sampai jumpa.'));
+      return;
+    default:
+      p.close();
+      console.log(yellow('Pilihan tidak dikenali.'));
+  }
+}
+
 async function main() {
   const errs = validatePuzzles(PUZZLES);
   if (errs.length) {
@@ -138,6 +233,7 @@ async function main() {
 
   const [cmd, ...rest] = process.argv.slice(2);
 
+  if (cmd === undefined) return runMenu();
   if (cmd === 'help' || cmd === '--help' || cmd === '-h') return help();
   if (cmd === 'list') return listPuzzles();
   if (cmd === 'verify') return verify();
@@ -178,11 +274,9 @@ async function main() {
     return;
   }
 
-  banner('BTC PUZZLE HUNTER v2', 'multi-worker · checkpointed · scraper');
-  listPuzzles();
-  console.log(bold('Live snapshot 5 wallet pertama:') + '\n');
-  await scrapeMany(PUZZLES.slice(0, 5).map((p) => p.address));
-  console.log('\n' + dim('Ketik `npm start help` untuk perintah lengkap.'));
+  console.error(yellow(`Perintah tidak dikenali: ${cmd}`));
+  console.error(dim('Ketik `npm start help` untuk daftar perintah, atau `npm start` saja untuk menu interaktif.'));
+  process.exit(1);
 }
 
 main().catch((e) => {

@@ -24,12 +24,12 @@ args = "BTC Puzzle Hunter"
 name = "BTC Puzzle Hunter"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "node src/index.js"
-
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node src/index.js verify"
 
 [agent]
 stack = "PNPM_WORKSPACE"
