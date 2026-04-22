@@ -19,7 +19,7 @@ function fmtFound(rec) {
   ].filter(Boolean).join('\n');
 }
 
-async function sendTelegram(rec, cfg) {
+async function sendTelegramRaw(text, cfg) {
   const token = resolveSecret(cfg.botToken);
   const chatId = resolveSecret(cfg.chatId);
   if (!token || !chatId) {
@@ -31,7 +31,7 @@ async function sendTelegram(rec, cfg) {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         chat_id: chatId,
-        text: fmtFound(rec),
+        text,
         parse_mode: 'Markdown',
         disable_web_page_preview: true,
       }),
@@ -42,6 +42,29 @@ async function sendTelegram(rec, cfg) {
   } catch (e) {
     return { ok: false, reason: e.message };
   }
+}
+
+async function sendTelegram(rec, cfg) {
+  return sendTelegramRaw(fmtFound(rec), cfg);
+}
+
+function fmtProgress(p) {
+  const lines = [
+    '📊 *Progress Hunt*',
+    `Puzzle  : #${p.puzzle} (${p.address})`,
+    `Attempts: ${p.totalAttempts.toLocaleString()}`,
+    `Rate    : ${p.rate.toFixed(0)} keys/s`,
+    `Uptime  : ${(p.uptimeSec / 60).toFixed(1)} min`,
+  ];
+  if (p.coverage != null) lines.push(`Coverage: ${(p.coverage * 100).toExponential(2)}%`);
+  if (p.eta != null && isFinite(p.eta)) lines.push(`ETA     : ${(p.eta / 3600).toFixed(1)} jam`);
+  return lines.join('\n');
+}
+
+export async function notifyProgress(p) {
+  const n = (loadConfig().notify) ?? {};
+  if (!n.telegram?.enabled) return { skipped: true };
+  return sendTelegramRaw(fmtProgress(p), n.telegram);
 }
 
 async function sendWebhook(rec, cfg) {

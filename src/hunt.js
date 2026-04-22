@@ -7,7 +7,7 @@ import * as ckpt from './checkpoint.js';
 import { isDeterministic } from './strategies.js';
 import { bsgs } from './bsgs.js';
 import { loadConfig } from './config.js';
-import { notifyFound } from './notify.js';
+import { notifyFound, notifyProgress } from './notify.js';
 import {
   bold, dim, cyan, green, yellow, red, gray,
   fmtNum, fmtRate, fmtETA, progressBar, box, createLiveBlock,
@@ -128,6 +128,12 @@ export async function huntPuzzle(puzzle, opts = {}) {
 
   const live = createLiveBlock();
 
+  const progressCfg = cfg.notify?.progress ?? {};
+  const progressIntervalMs = progressCfg.enabled
+    ? Math.max(60_000, (progressCfg.intervalMinutes ?? 60) * 60_000)
+    : 0;
+  let lastProgressNotify = Date.now();
+
   const result = await new Promise((resolve) => {
     let lastReport = Date.now();
     let lastCheckpoint = Date.now();
@@ -160,6 +166,19 @@ export async function huntPuzzle(puzzle, opts = {}) {
       if (Date.now() - lastCheckpoint > checkpointMs) {
         persist();
         lastCheckpoint = Date.now();
+      }
+
+      if (progressIntervalMs > 0 && Date.now() - lastProgressNotify > progressIntervalMs) {
+        lastProgressNotify = Date.now();
+        notifyProgress({
+          puzzle: puzzle.puzzle,
+          address: puzzle.address,
+          totalAttempts: grand,
+          rate: rateAvg,
+          uptimeSec: dt,
+          coverage: deterministic ? ratio : null,
+          eta: deterministic ? eta : null,
+        }).catch(() => {});
       }
 
       if (durationMs > 0 && Date.now() - t0 > durationMs) {

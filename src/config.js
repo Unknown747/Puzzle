@@ -22,6 +22,10 @@ const DEFAULTS = {
   notify: {
     beep: true,
     beepTimes: 3,
+    progress: {
+      enabled: false,
+      intervalMinutes: 60,
+    },
     telegram: {
       enabled: false,
       botToken: '${TELEGRAM_BOT_TOKEN}',
