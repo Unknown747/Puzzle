@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import { huntPuzzle } from './hunt.js';
+import { notifyFound } from './notify.js';
 import { snapshotPuzzles, scrapeWallet, watchPuzzles } from './scrape.js';
 import { loadConfig } from './config.js';
 import { bigIntToPrivKey, privKeyToAddress } from './keygen.js';
@@ -68,6 +69,7 @@ ${cyan('Mode CLI langsung:')}
   btc-hunt hunt --puzzle N [opsi]        Hunt puzzle dengan worker thread
   btc-hunt auto [opsi]                   Auto: pilih puzzle terbuka terkecil & hunt
                                          (--rotate SECS untuk siklus semua puzzle)
+  btc-hunt notify-test                   Kirim notifikasi dummy (cek Telegram/webhook)
 
 ${cyan('Opsi hunt (override config.json):')}
   --puzzle N            Nomor puzzle (wajib)
@@ -256,6 +258,21 @@ async function main() {
     const opts = {};
     if (arg0) opts.intervalMs = Number(arg0) * 1000;
     await watchPuzzles(PUZZLES.filter((p) => p.status === 'open'), opts);
+    return;
+  }
+
+  if (cmd === 'notify-test') {
+    const fake = {
+      puzzle: 0,
+      address: 'TEST_ADDRESS_xxxxxxxxxxxxxxxxxxxxxxxxxx',
+      privateKeyHex: '00'.repeat(32),
+      wif: 'TEST_WIF',
+      method: 'test',
+      foundAt: new Date().toISOString(),
+    };
+    console.log(cyan('Mengirim notifikasi test...'));
+    const r = await notifyFound(fake);
+    console.log(JSON.stringify(r, null, 2));
     return;
   }
 

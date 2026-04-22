@@ -7,6 +7,7 @@ import * as ckpt from './checkpoint.js';
 import { isDeterministic } from './strategies.js';
 import { bsgs } from './bsgs.js';
 import { loadConfig } from './config.js';
+import { notifyFound } from './notify.js';
 import {
   bold, dim, cyan, green, yellow, red, gray,
   fmtNum, fmtRate, fmtETA, progressBar, box, createLiveBlock,
@@ -50,6 +51,8 @@ export async function huntPuzzle(puzzle, opts = {}) {
       appendFound(record);
       console.log('\n' + green(bold('*** KEY DITEMUKAN (BSGS) ***')));
       console.log(JSON.stringify(record, null, 2));
+      const nres = await notifyFound(record);
+      if (nres.telegram) console.log(dim('  telegram: ') + (nres.telegram.ok ? green('terkirim') : red(nres.telegram.reason || 'gagal')));
       return record;
     }
     console.log(yellow('BSGS selesai tanpa hasil dalam range yang diberikan.'));
@@ -213,6 +216,9 @@ export async function huntPuzzle(puzzle, opts = {}) {
     console.log(green('  mode     ') + result.addressMode);
     console.log(green('  attempts ') + fmtNum(result.totalAttempts) + dim(`  in ${(result.elapsedMs/1000).toFixed(1)}s`));
     console.log(green('  saved to ') + dim(FOUND_LOG));
+    const nres = await notifyFound(result);
+    if (nres.telegram) console.log(green('  telegram ') + (nres.telegram.ok ? 'terkirim' : red(nres.telegram.reason || 'gagal')));
+    if (nres.webhook) console.log(green('  webhook  ') + (nres.webhook.ok ? 'terkirim' : red(nres.webhook.reason || 'gagal')));
   } else {
     console.log(yellow('\nWaktu habis / dihentikan tanpa hasil. Checkpoint disimpan.'));
   }

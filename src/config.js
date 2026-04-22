@@ -19,6 +19,19 @@ const DEFAULTS = {
     retryBaseMs: 600,
   },
   watch: { intervalSec: 60, rotateMaxBytes: 10 * 1024 * 1024 },
+  notify: {
+    beep: true,
+    beepTimes: 3,
+    telegram: {
+      enabled: false,
+      botToken: '${TELEGRAM_BOT_TOKEN}',
+      chatId: '${TELEGRAM_CHAT_ID}',
+    },
+    webhook: {
+      enabled: false,
+      url: '${NOTIFY_WEBHOOK_URL}',
+    },
+  },
 };
 
 function isPlainObject(v) {
