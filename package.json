@@ -9,6 +9,7 @@
   },
   "scripts": {
     "start": "node src/index.js",
+    "auto": "node src/index.js auto",
     "hunt": "node src/index.js hunt",
     "scrape": "node src/index.js scrape",
     "watch": "node src/index.js watch",

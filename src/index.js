@@ -61,11 +61,13 @@ ${cyan('Cara cepat:')}
   npm start                              Menu interaktif (paling mudah)
 
 ${cyan('Mode CLI langsung:')}
-  npm start list                         Daftar semua target puzzle
-  npm start verify                       Validasi data + keygen + konektivitas API
-  npm start scrape [nomor...] [opsi]     Ambil saldo wallet
-  npm start watch [interval-detik]       Monitor saldo terus-menerus
-  npm start hunt --puzzle N [opsi]       Hunt puzzle dengan worker thread
+  btc-hunt list                          Daftar semua target puzzle
+  btc-hunt verify                        Validasi data + keygen + konektivitas API
+  btc-hunt scrape [nomor...] [opsi]      Ambil saldo wallet
+  btc-hunt watch [interval-detik]        Monitor saldo terus-menerus
+  btc-hunt hunt --puzzle N [opsi]        Hunt puzzle dengan worker thread
+  btc-hunt auto [opsi]                   Auto: pilih puzzle terbuka terkecil & hunt
+                                         (--rotate SECS untuk siklus semua puzzle)
 
 ${cyan('Opsi hunt (override config.json):')}
   --puzzle N            Nomor puzzle (wajib)
@@ -254,6 +256,47 @@ async function main() {
     const opts = {};
     if (arg0) opts.intervalMs = Number(arg0) * 1000;
     await watchPuzzles(PUZZLES.filter((p) => p.status === 'open'), opts);
+    return;
+  }
+
+  if (cmd === 'auto') {
+    const f = parseFlags(rest);
+    const opts = {};
+    if (f.strategy) opts.strategy = f.strategy;
+    if (f.workers) opts.workers = Number(f.workers);
+    if (f['address-mode']) opts.addressMode = f['address-mode'];
+    if (f['no-resume']) opts.resume = false;
+
+    const openPuzzles = PUZZLES
+      .filter((p) => p.status === 'open')
+      .sort((a, b) => a.puzzle - b.puzzle);
+
+    if (openPuzzles.length === 0) {
+      console.log(green('Semua puzzle sudah terpecahkan.'));
+      return;
+    }
+
+    if (f.rotate) {
+      const sliceMs = Number(f.rotate) * 1000;
+      console.log(cyan(`Auto-rotate: ${openPuzzles.length} puzzle, ${f.rotate}s per puzzle (checkpoint aktif).`));
+      let i = 0;
+      // graceful stop
+      let stop = false;
+      process.on('SIGINT', () => { stop = true; });
+      while (!stop) {
+        const p = openPuzzles[i % openPuzzles.length];
+        console.log('\n' + bold(`▶ Puzzle #${p.puzzle}  ${p.address}  (${p.balanceBTC} BTC)`));
+        await huntPuzzle(p, { ...opts, durationMs: sliceMs });
+        i++;
+      }
+      return;
+    }
+
+    const pick = openPuzzles[0];
+    console.log(cyan(`Auto-pick: puzzle #${pick.puzzle}  ${pick.address}  (${pick.balanceBTC} BTC)`));
+    const huntOpts = { ...opts };
+    if (f.duration !== undefined) huntOpts.durationMs = Number(f.duration) * 1000;
+    await huntPuzzle(pick, huntOpts);
     return;
   }
 
