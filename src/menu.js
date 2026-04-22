@@ -1,6 +1,6 @@
 import readline from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
-import { bold, cyan, green, yellow, dim, gray } from './ui.js';
+import { bold, cyan, green, yellow, dim } from './ui.js';
 
 export function createPrompt() {
   const rl = readline.createInterface({ input, output });

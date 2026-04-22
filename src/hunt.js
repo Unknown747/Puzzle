@@ -21,6 +21,15 @@ function appendFound(record) {
   fs.appendFileSync(FOUND_LOG, JSON.stringify(record) + '\n');
 }
 
+function printNotifyResult(nres) {
+  for (const channel of ['telegram', 'webhook']) {
+    const r = nres?.[channel];
+    if (!r || r.skipped) continue;
+    const status = r.ok ? green('terkirim') : red(r.reason || 'gagal');
+    console.log(dim(`  ${channel.padEnd(8)}`) + ' ' + status);
+  }
+}
+
 export async function huntPuzzle(puzzle, opts = {}) {
   const cfg = loadConfig();
   const huntCfg = cfg.hunt;
@@ -51,8 +60,7 @@ export async function huntPuzzle(puzzle, opts = {}) {
       appendFound(record);
       console.log('\n' + green(bold('*** KEY DITEMUKAN (BSGS) ***')));
       console.log(JSON.stringify(record, null, 2));
-      const nres = await notifyFound(record);
-      if (nres.telegram) console.log(dim('  telegram: ') + (nres.telegram.ok ? green('terkirim') : red(nres.telegram.reason || 'gagal')));
+      printNotifyResult(await notifyFound(record));
       return record;
     }
     console.log(yellow('BSGS selesai tanpa hasil dalam range yang diberikan.'));
@@ -235,9 +243,7 @@ export async function huntPuzzle(puzzle, opts = {}) {
     console.log(green('  mode     ') + result.addressMode);
     console.log(green('  attempts ') + fmtNum(result.totalAttempts) + dim(`  in ${(result.elapsedMs/1000).toFixed(1)}s`));
     console.log(green('  saved to ') + dim(FOUND_LOG));
-    const nres = await notifyFound(result);
-    if (nres.telegram) console.log(green('  telegram ') + (nres.telegram.ok ? 'terkirim' : red(nres.telegram.reason || 'gagal')));
-    if (nres.webhook) console.log(green('  webhook  ') + (nres.webhook.ok ? 'terkirim' : red(nres.webhook.reason || 'gagal')));
+    printNotifyResult(await notifyFound(result));
   } else {
     console.log(yellow('\nWaktu habis / dihentikan tanpa hasil. Checkpoint disimpan.'));
   }

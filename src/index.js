@@ -5,7 +5,7 @@ import { notifyFound } from './notify.js';
 import { snapshotPuzzles, scrapeWallet, watchPuzzles } from './scrape.js';
 import { loadConfig } from './config.js';
 import { bigIntToPrivKey, privKeyToAddress } from './keygen.js';
-import { bold, cyan, green, yellow, red, dim, gray, banner } from './ui.js';
+import { bold, cyan, green, yellow, red, dim, banner } from './ui.js';
 import { createPrompt, printMenuHeader, printMenuOptions } from './menu.js';
 
 const PUZZLES = JSON.parse(fs.readFileSync('data/puzzles.json', 'utf8'));
@@ -89,8 +89,8 @@ ${cyan('Default & tuning di config.json (root project)')}.
 
 function listPuzzles() {
   console.log('\n' + bold('Daftar target puzzle:') + '\n');
-  console.log(gray('   #    Status   Saldo BTC   Address'));
-  console.log(gray('  ────────────────────────────────────────────────────────────'));
+  console.log(dim('   #    Status   Saldo BTC   Address'));
+  console.log(dim('  ────────────────────────────────────────────────────────────'));
   for (const p of PUZZLES) {
     const status = p.status === 'open' ? yellow('open   ') : green('solved ');
     const bal = String(p.balanceBTC).padStart(8);
@@ -199,8 +199,8 @@ async function runMenu() {
     printMenuHeader(puzzleStats());
     listPuzzles();
     console.log(dim('Mode non-interaktif terdeteksi (workflow/log).') + '\n' +
-      dim('Jalankan `npm start` di terminal untuk menu interaktif, ') +
-      dim('atau pakai sub-perintah: `npm start hunt --puzzle N`, `scrape`, `watch`, `verify`, `help`.'));
+      dim('Jalankan `btc-hunt` di terminal untuk menu interaktif, ') +
+      dim('atau pakai sub-perintah: `btc-hunt hunt --puzzle N`, `scrape`, `watch`, `verify`, `help`.'));
     return;
   }
 
@@ -296,17 +296,14 @@ async function main() {
     if (f.rotate) {
       const sliceMs = Number(f.rotate) * 1000;
       console.log(cyan(`Auto-rotate: ${openPuzzles.length} puzzle, ${f.rotate}s per puzzle (checkpoint aktif).`));
-      let i = 0;
-      // graceful stop
-      let stop = false;
-      process.on('SIGINT', () => { stop = true; });
-      while (!stop) {
+      // Ctrl+C ditangani huntPuzzle (simpan checkpoint lalu exit), jadi loop ini
+      // berhenti otomatis lewat process.exit. Tidak perlu flag stop tambahan.
+      for (let i = 0; ; i++) {
         const p = openPuzzles[i % openPuzzles.length];
         console.log('\n' + bold(`▶ Puzzle #${p.puzzle}  ${p.address}  (${p.balanceBTC} BTC)`));
-        await huntPuzzle(p, { ...opts, durationMs: sliceMs });
-        i++;
+        const r = await huntPuzzle(p, { ...opts, durationMs: sliceMs });
+        if (r) return; // key ditemukan
       }
-      return;
     }
 
     const pick = openPuzzles[0];
@@ -320,7 +317,7 @@ async function main() {
   if (cmd === 'hunt') {
     const f = parseFlags(rest);
     if (!f.puzzle) {
-      console.error('Wajib --puzzle <nomor>. Lihat: npm start help');
+      console.error('Wajib --puzzle <nomor>. Lihat: btc-hunt help');
       process.exit(1);
     }
     const p = getPuzzle(f.puzzle);
@@ -336,7 +333,7 @@ async function main() {
   }
 
   console.error(yellow(`Perintah tidak dikenali: ${cmd}`));
-  console.error(dim('Ketik `npm start help` untuk daftar perintah, atau `npm start` saja untuk menu interaktif.'));
+  console.error(dim('Ketik `btc-hunt help` untuk daftar perintah, atau `btc-hunt` saja untuk menu interaktif.'));
   process.exit(1);
 }
 

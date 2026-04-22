@@ -44,10 +44,6 @@ async function sendTelegramRaw(text, cfg) {
   }
 }
 
-async function sendTelegram(rec, cfg) {
-  return sendTelegramRaw(fmtFound(rec), cfg);
-}
-
 function fmtProgress(p) {
   const lines = [
     '📊 *Progress Hunt*',
@@ -91,7 +87,7 @@ export async function notifyFound(rec) {
   const n = (loadConfig().notify) ?? {};
   const out = {};
   if (n.beep !== false) beep(n.beepTimes ?? 3);
-  if (n.telegram?.enabled) out.telegram = await sendTelegram(rec, n.telegram);
+  if (n.telegram?.enabled) out.telegram = await sendTelegramRaw(fmtFound(rec), n.telegram);
   if (n.webhook?.enabled) out.webhook = await sendWebhook(rec, n.webhook);
   return out;
 }
