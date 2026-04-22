@@ -9,8 +9,7 @@ secp.etc.hmacSha256Sync = (k, ...m) => hmac(sha256, k, secp.etc.concatBytes(...m
 const VERSION_P2PKH = 0x00;
 const VERSION_WIF = 0x80;
 
-export function bigIntToPrivKey(n) {
-  const out = new Uint8Array(32);
+export function bigIntToPrivKey(n, out = new Uint8Array(32)) {
   let x = n;
   for (let i = 31; i >= 0; i--) {
     out[i] = Number(x & 0xffn);

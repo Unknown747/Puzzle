@@ -11,6 +11,7 @@ Script Node.js untuk Bitcoin Puzzle: pencarian private key paralel multi-worker,
 ## Fitur
 
 - **Multi-worker parallel** — `worker_threads`, otomatis pakai semua core CPU
+- **Incremental EC math** — strategi `sequential`/`stride` ~20× lebih cepat dari naive scalar mult
 - **Checkpoint & resume** — Ctrl+C aman, lanjut dari posisi terakhir
 - **4 strategi pencarian** — `random`, `sequential`, `stride`, `combined`
 - **Auto-mode** — pilih puzzle terbuka terkecil otomatis, atau rotasi semua puzzle
@@ -185,14 +186,14 @@ data/
 
 ## Strategi Pencarian
 
-| Nama | Tipe | Keterangan |
-|---|---|---|
-| `random` | non-deterministik | Murni acak dalam range |
-| `sequential` | deterministik | Range dibagi merata antar worker, scan urut |
-| `stride` | deterministik | Worker N ambil tiap key ke-N (offset N) |
-| `combined` | hybrid | 50% random + 50% sequential per-worker offset (default) |
+| Nama | Tipe | Keterangan | Kecepatan |
+|---|---|---|---|
+| `sequential` | deterministik | Range dibagi merata antar worker, scan urut | ⚡ tercepat (incremental EC) |
+| `stride` | deterministik | Worker N ambil tiap key ke-N (offset N) | ⚡ tercepat (incremental EC) |
+| `random` | non-deterministik | Murni acak dalam range | lambat (full scalar mult) |
+| `combined` | hybrid | 50% random + 50% sequential per-worker offset (default) | lambat (random path) |
 
-Strategi deterministik menampilkan ETA pasti; strategi acak menampilkan coverage estimasi.
+**Tip:** untuk kecepatan maksimal, pakai `--strategy stride`. Strategi deterministik menampilkan ETA pasti; strategi acak menampilkan coverage estimasi.
 
 ## Test
 
@@ -200,4 +201,8 @@ Strategi deterministik menampilkan ETA pasti; strategi acak menampilkan coverage
 npm test
 ```
 
-Mencakup: keygen vector, semua generator strategi (no overlap antar worker), parser flag, atomic checkpoint, BSGS solver.
+Mencakup: keygen vector, semua generator strategi (no overlap antar worker), parser flag, atomic checkpoint, BSGS solver. Total 19 test.
+
+## Lisensi
+
+[MIT](LICENSE)
