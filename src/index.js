@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import fs from 'node:fs';
 import { huntPuzzle } from './hunt.js';
 import { snapshotPuzzles, scrapeWallet, watchPuzzles } from './scrape.js';

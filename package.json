@@ -4,11 +4,17 @@
   "description": "Bitcoin Puzzle hunter (multi-worker, checkpointed) + wallet scraper",
   "type": "module",
   "main": "src/index.js",
+  "bin": {
+    "btc-hunt": "src/index.js"
+  },
   "scripts": {
     "start": "node src/index.js",
-    "scrape": "node src/index.js scrape",
     "hunt": "node src/index.js hunt",
+    "scrape": "node src/index.js scrape",
     "watch": "node src/index.js watch",
+    "list": "node src/index.js list",
+    "verify": "node src/index.js verify",
+    "help": "node src/index.js help",
     "test": "node --test test/*.test.js"
   },
   "dependencies": {
