@@ -1,5 +1,11 @@
 # BTC Puzzle Hunter v2
 
+![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)
+![Tests](https://img.shields.io/badge/tests-19%20passing-success)
+![License](https://img.shields.io/badge/license-MIT-blue)
+![Type](https://img.shields.io/badge/module-ESM-orange)
+![Deps](https://img.shields.io/badge/deps-pure%20JS-informational)
+
 Script Node.js untuk Bitcoin Puzzle: pencarian private key paralel multi-worker, scraper saldo wallet target, monitoring real-time, dan notifikasi Telegram saat key ditemukan.
 
 ## Fitur
